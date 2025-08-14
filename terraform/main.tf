@@ -36,9 +36,9 @@ resource "aws_lambda_function" "hola_mundo" {
   role          = aws_iam_role.lambda_role.arn
   runtime       = "python3.12"
   handler       = "lambda_function.lambda_handler"
-  filename      = "${path.module}/../src/hola.zip"
+  filename      = "${path.module}/hola.zip"
 
-  source_code_hash = filebase64sha256("${path.module}/../src/hola.zip")
+  source_code_hash = filebase64sha256("${path.module}/hola.zip")
 }
 
 resource "aws_apigatewayv2_api" "api" {
