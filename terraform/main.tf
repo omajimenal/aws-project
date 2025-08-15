@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.5"
+    }
   }
   required_version = ">= 1.6.0"
 }
@@ -25,13 +29,13 @@ data "aws_lambda_function" "existing_lambda" {
 
 # Crear Lambda solo si no existe
 resource "aws_lambda_function" "hola_mundo" {
-  count         = length(data.aws_lambda_function.existing_lambda) == 0 ? 1 : 0
-  function_name = "lambda_hola_mundo"
-  role          = data.aws_iam_role.lambda_role.arn
-  handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.12"
-  filename      = "${path.module}/hola.zip"
-  source_code_hash = filebase64sha256("${path.module}/hola.zip")
+  count             = length(data.aws_lambda_function.existing_lambda) == 0 ? 1 : 0
+  function_name     = "lambda_hola_mundo"
+  role              = data.aws_iam_role.lambda_role.arn
+  handler           = "lambda_function.lambda_handler"
+  runtime           = "python3.12"
+  filename          = "${path.module}/hola.zip"
+  source_code_hash  = filebase64sha256("${path.module}/hola.zip")
 }
 
 # API Gateway HTTP API
@@ -42,10 +46,10 @@ resource "aws_apigatewayv2_api" "api" {
 
 # Integración Lambda → API Gateway
 resource "aws_apigatewayv2_integration" "lambda_integration" {
-  api_id           = aws_apigatewayv2_api.api.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = length(data.aws_lambda_function.existing_lambda) > 0 ? data.aws_lambda_function.existing_lambda[0].arn : aws_lambda_function.hola_mundo[0].arn
-  payload_format_version = "2.0"
+  api_id                  = aws_apigatewayv2_api.api.id
+  integration_type        = "AWS_PROXY"
+  integration_uri         = length(data.aws_lambda_function.existing_lambda) > 0 ? data.aws_lambda_function.existing_lambda[0].arn : aws_lambda_function.hola_mundo[0].arn
+  payload_format_version  = "2.0"
 }
 
 # Ruta GET /hello
@@ -62,9 +66,14 @@ resource "aws_apigatewayv2_stage" "stage" {
   auto_deploy = true
 }
 
+# Generar statement_id único para Lambda Permission
+resource "random_id" "lambda_perm" {
+  byte_length = 4
+}
+
 # Permisos para que API Gateway invoque Lambda
 resource "aws_lambda_permission" "api_gw_permission" {
-  statement_id  = "AllowAPIGatewayInvoke"
+  statement_id  = "AllowAPIGatewayInvoke-${random_id.lambda_perm.hex}"
   action        = "lambda:InvokeFunction"
   function_name = length(data.aws_lambda_function.existing_lambda) > 0 ? data.aws_lambda_function.existing_lambda[0].function_name : aws_lambda_function.hola_mundo[0].function_name
   principal     = "apigateway.amazonaws.com"
