@@ -2,41 +2,47 @@ name: Deploy Lambda Hola Mundo
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main   # O la rama que uses
+    paths:
+      - 'lambda_function.py'   # Solo dispara si cambia el código
+      - 'terraform/**'         # También si cambian archivos de Terraform
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    # 1️⃣ Clonar el repositorio
-    - uses: actions/checkout@v3
+      # 1️⃣ Clonar el repositorio
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    # 2️⃣ Configurar credenciales de AWS
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+      # 2️⃣ Configurar credenciales AWS
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1  # Cambiar si usas otra región
 
-    # 3️⃣ Instalar Terraform
-    - name: Install Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.9.5
+      # 3️⃣ Instalar Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
 
-    # 4️⃣ Generar zip de Lambda
-    - name: Package Lambda
-      run: |
-        cd src
-        zip hola.zip lambda_function.py
-        mv hola.zip ../terraform/
+      # 4️⃣ Generar ZIP de Lambda
+      - name: Package Lambda
+        run: zip -j terraform/hola.zip lambda_function.py
 
-    # 5️⃣ Inicializar Terraform
-    - name: Terraform Init
-      run: cd terraform && terraform init
+      # 5️⃣ Inicializar Terraform
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
 
-    # 6️⃣ Aplicar Terraform
-    - name: Terraform Apply
-      run: cd terraform && terraform apply -auto-approve
+      # 6️⃣ Aplicar Terraform
+      - name: Terraform Apply
+        run: terraform -chdir=terraform apply -auto-approve
+
+      # 7️⃣ Mostrar endpoint
+      - name: Show API endpoint
+        run: terraform -chdir=terraform output api_endpoint
